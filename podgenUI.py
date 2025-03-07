@@ -46,7 +46,7 @@ import streamlit as st
 import asyncio
 import tempfile
 import docx
-import PyPDF2
+from pypdf import PdfReader
 import openai
 from io import BytesIO
 import configparser
@@ -118,7 +118,7 @@ def extract_text_from_file(uploaded_file):
         doc = docx.Document(uploaded_file)
         text = '\n'.join([paragraph.text for paragraph in doc.paragraphs])
     elif file_extension == 'pdf':
-        pdf_reader = PyPDF2.PdfReader(uploaded_file)
+        pdf_reader = PdfReader(uploaded_file)
         text = '\n'.join([page.extract_text() for page in pdf_reader.pages])
     elif file_extension in ['html', 'htm']:
         soup = BeautifulSoup(uploaded_file, 'html.parser')
@@ -130,7 +130,7 @@ def extract_text_from_file(uploaded_file):
         text_runs = []
         for slide in prs.slides:
             for shape in slide.shapes:
-                if hasattr(shape, "text"):
+                if hasattr(shape, "text") and shape.text is not None:
                     text_runs.append(shape.text)
         text = '\n'.join(text_runs)
     
@@ -182,7 +182,7 @@ def extract_text_from_url(url):
             element.decompose()
         
         # 处理标题
-        if soup.title:
+        if soup.title and soup.title.string:
             title = soup.title.string.strip()
         else:
             title = ""
@@ -201,24 +201,26 @@ def extract_text_from_url(url):
         
         # 处理段落和其他文本元素
         for element in main_content.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p'], recursive=True):
-            text = element.get_text(strip=True)
-            if text and text not in processed_text:  # 只处理非空且未处理过的文本
-                processed_text.add(text)
-                # 对于标题元素添加额外的换行
-                if element.name.startswith('h'):
-                    content_parts.append("\n" + text + "\n")
-                # 对于段落添加适当的间距
-                else:
-                    content_parts.append(text + "\n\n")
+            if hasattr(element, 'get_text'):
+                text = element.get_text(strip=True)
+                if text and text not in processed_text:  # 只处理非空且未处理过的文本
+                    processed_text.add(text)
+                    # 对于标题元素添加额外的换行
+                    if hasattr(element, 'name') and element.name.startswith('h'):
+                        content_parts.append("\n" + text + "\n")
+                    # 对于段落添加适当的间距
+                    else:
+                        content_parts.append(text + "\n\n")
         
         # 处理可能的其他有意义的div内容
         for element in main_content.find_all('div', recursive=True):
             # 只处理直接包含文本的div，避免处理包含其他元素的div
-            if element.find(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']) is None:
-                text = element.get_text(strip=True)
-                if text and len(text) > 50 and text not in processed_text:  # 只处理长度超过50的文本
-                    processed_text.add(text)
-                    content_parts.append(text + "\n\n")
+            if hasattr(element, 'find') and isinstance(element, BeautifulSoup.Tag):
+                if element.find(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']) is None and hasattr(element, 'get_text'):
+                    text = element.get_text(strip=True)
+                    if text and len(text) > 50 and text not in processed_text:  # 只处理长度超过50的文本
+                        processed_text.add(text)
+                        content_parts.append(text + "\n\n")
         
         # 合并所有内容
         text = ''.join(content_parts)
@@ -437,4 +439,4 @@ if st.button("生成音频"):
         except Exception as e:
             st.error(f"音频生成失败: {str(e)}")
     else:
-        st.error("请先输入或上传文本内容") 
+        st.error("请先输入或上传文本内容")
