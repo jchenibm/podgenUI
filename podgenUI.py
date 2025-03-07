@@ -2,26 +2,25 @@
 文本转语音生成器 (PodgenUI)
 
 功能介绍:
-该程序提供了一个基于 Streamlit 的用户界面，允许用户从文件或 URL 提取文本内容，并使用大模型处理文本。处理后的文本通过 TTS 技术生成音频文件，并支持音频预览和下载。
+该程序提供了一个基于 Streamlit 的用户界面，允许用户从网页 URL 提取文本内容，并使用大模型处理文本。处理后的文本通过 TTS 技术生成音频文件，并支持音频预览和下载。
 
 主要功能:
-1. 支持从多种文件格式（txt, docx, pdf, html, md, pptx）提取文本
-2. 支持从网页 URL 提取文本内容
-3. 集成 GPT 模型进行文本处理（可选）
-4. 使用 Microsoft Edge TTS 生成高质量语音
-5. 提供多种语音选择
-6. 支持音频预览和下载
+1. 支持从网页 URL 提取文本内容
+2. 集成 GPT 模型进行文本处理（可选）
+3. 使用 Microsoft Edge TTS 生成高质量语音
+4. 提供多种语音选择
+5. 支持音频预览和下载
 
 使用方法:
-1. 确保已安装所有依赖库，包括 streamlit、edge_tts、pydub、requests、html2text、pypdf、pptx、bs4、aiohttp 等。
+1. 确保已安装所有依赖库，包括 streamlit、edge_tts、pydub、requests、bs4、aiohttp 等。
    可以使用以下命令安装:
-   pip install streamlit edge_tts pydub requests html2text pypdf pptx bs4 aiohttp
+   pip install streamlit edge_tts pydub requests bs4 aiohttp openai
 
 2. 运行程序:
    streamlit run podgenUI.py
 
 3. 在浏览器中打开程序界面:
-   - 上传文件或输入 URL 以获取文本内容
+   - 输入 URL 以获取文本内容
    - 使用 GPT 处理文本（可选）
    - 选择语音并生成音频
    - 预览和下载生成的音频文件
@@ -45,16 +44,12 @@ from pydub import AudioSegment
 import streamlit as st
 import asyncio
 import tempfile
-import docx
-from pypdf import PdfReader
 import openai
-from io import BytesIO
 import configparser
 import json
 import requests
 from bs4 import BeautifulSoup
 import re
-from pptx import Presentation
 
 def load_config():
     """从配置文件加载GPT设置"""
@@ -107,34 +102,7 @@ if 'system_prompt' not in st.session_state:
 if 'text_content' not in st.session_state:
     st.session_state.text_content = ""
 
-def extract_text_from_file(uploaded_file):
-    """从不同格式的文件中提取文本"""
-    text = ""
-    file_extension = uploaded_file.name.split('.')[-1].lower()
-    
-    if file_extension == 'txt':
-        text = uploaded_file.read().decode('utf-8')
-    elif file_extension == 'docx':
-        doc = docx.Document(uploaded_file)
-        text = '\n'.join([paragraph.text for paragraph in doc.paragraphs])
-    elif file_extension == 'pdf':
-        pdf_reader = PdfReader(uploaded_file)
-        text = '\n'.join([page.extract_text() for page in pdf_reader.pages])
-    elif file_extension in ['html', 'htm']:
-        soup = BeautifulSoup(uploaded_file, 'html.parser')
-        text = soup.get_text(separator='\n')
-    elif file_extension == 'md':
-        text = uploaded_file.read().decode('utf-8')
-    elif file_extension == 'pptx':
-        prs = Presentation(uploaded_file)
-        text_runs = []
-        for slide in prs.slides:
-            for shape in slide.shapes:
-                if hasattr(shape, "text") and shape.text is not None:
-                    text_runs.append(shape.text)
-        text = '\n'.join(text_runs)
-    
-    return text
+
 
 def process_text_with_gpt(text, api_key, model_name, base_url):
     """使用GPT处理文本，生成标题和正文格式"""
@@ -341,34 +309,7 @@ if col2.button("获取内容"):
     else:
         st.warning("请输入URL")
 
-# 文件上传
-st.write("或者上传文件：")
-uploaded_file = st.file_uploader("上传文件", type=['md', 'txt', 'html', 'htm', 'docx', 'pdf', 'pptx'])
 text_content = st.session_state.text_content
-
-if uploaded_file is not None:
-    try:
-        # 提取文本
-        text_content = extract_text_from_file(uploaded_file)
-        st.session_state.text_content = text_content
-        
-        # 使用GPT处理文本
-        if use_gpt and st.session_state.openai_api_key:
-            if st.button("处理文本"):
-                with st.spinner("正在处理文本..."):
-                    text_content = process_text_with_gpt(
-                        text_content,
-                        st.session_state.openai_api_key,
-                        st.session_state.model_name,
-                        st.session_state.base_url
-                    )
-                    st.session_state.text_content = text_content
-        elif use_gpt and not st.session_state.openai_api_key:
-            st.warning("请在侧边栏输入OpenAI API Key")
-    except Exception as e:
-        st.error(f"文件处理失败: {str(e)}")
-        text_content = ""
-        st.session_state.text_content = ""
 
 # 文本编辑区
 text_content = st.text_area("编辑文本", text_content, height=300)
@@ -439,4 +380,4 @@ if st.button("生成音频"):
         except Exception as e:
             st.error(f"音频生成失败: {str(e)}")
     else:
-        st.error("请先输入或上传文本内容")
+        st.error("请先输入文本内容")
