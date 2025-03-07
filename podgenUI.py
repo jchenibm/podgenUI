@@ -48,7 +48,7 @@ import openai
 import configparser
 import json
 import requests
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 import re
 
 def load_config():
@@ -183,7 +183,7 @@ def extract_text_from_url(url):
         # 处理可能的其他有意义的div内容
         for element in main_content.find_all('div', recursive=True):
             # 只处理直接包含文本的div，避免处理包含其他元素的div
-            if hasattr(element, 'find') and isinstance(element, BeautifulSoup.Tag):
+            if hasattr(element, 'find') and isinstance(element, Tag):
                 if element.find(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']) is None and hasattr(element, 'get_text'):
                     text = element.get_text(strip=True)
                     if text and len(text) > 50 and text not in processed_text:  # 只处理长度超过50的文本
